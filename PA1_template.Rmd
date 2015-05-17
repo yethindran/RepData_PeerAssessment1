@@ -8,18 +8,168 @@ output:
 
 ## Loading and preprocessing the data
 
+```{r}
+file <- unzip("activity.zip")
+origDF <- read.csv(file, header = TRUE, sep = ",", na.strings = "NA", nrows = 17568)
 
+
+imputedDF <- origDF
+noNADF <- na.omit(origDF)
+
+```
 
 ## What is mean total number of steps taken per day?
 
+```{r 1.Histogram }
+library(sqldf)
+totSteps <- sqldf("select sum(steps) from noNADF group by date ")
+colnames(totSteps) <- "steps"
 
+hist(totSteps$steps , breaks = 25, ylim = c(0,10), col = 'brown', xlab = 'Sum of Steps', bg = 'white', main = 'Number of Steps per day')
+
+```
+
+## What is the mean and medium
+
+```{r 2.Mean and Median}
+mmPDate <- sqldf("select date as Date, AVG(steps) as Mean, ((max(steps) + min(steps)) / 2)  as Median from noNADF group by date ")
+
+
+```
+### Report of the Mean and Median
+```{r }
+
+print(mmPDate)
+
+```
 
 ## What is the average daily activity pattern?
 
+```{r Average Daily Activity Pattern}
 
+library(lattice)
+
+aveStepsInt <- sqldf("select interval, AVG(steps) as Mean from noNADF group by interval ")
+ 
+xyplot(aveStepsInt$Mean ~ aveStepsInt$interval,
+        data = aveStepsInt,
+        type = "l", lty = c(1, 2, 2, 1),
+        xlab = "Interval", ylab = "Average Steps"
+       )
+ 
+```
+
+## What is the interval at maximum number of steps
+
+```{r Interval at Maximum number of steps}
+
+maxInterval <- sqldf(" select interval from noNADF where steps = (select MAX(steps) from noNADF)")
+printStr <- sprintf("The 5 min interval with maximum number of steps = %d",maxInterval$interval)
+print(printStr)
+
+```
 
 ## Imputing missing values
+
+```{r Impute}
+
+totalNA <- nrow(origDF) - nrow(noNADF)
+printStr <- sprintf("Total number of Missing Values = %d",totalNA)
+print(printStr)
+
+# Imputing the NAs with the mean for that interval from the No NAs data frame
+for(i in 1:17568) {
+        if (is.na(origDF$steps[i])) { 
+            imputedDF$steps[i] <- aveStepsInt$Mean[aveStepsInt$interval 
+                                             == origDF$interval[i]]
+        }
+}
+colnames(imputedDF) <- c("steps", "date", "interval")
+
+```
+
+## Histogram for imputed values
+
+```{r 2.Histogram }
+
+totSteps2 <- sqldf("select sum(steps) from imputedDF group by date ")
+colnames(totSteps2) <- "steps"
+
+hist(totSteps2$steps , breaks = 25, ylim = c(0,10), col = 'brown', xlab = 'Sum of Steps', bg = 'white', main = 'Number of Steps per day')
+
+```
+
+## Mean and medium for imputed values
+
+```{r Mean and Median}
+mmPDate2 <- sqldf("select date as Date, AVG(steps) as Mean, ((max(steps) + min(steps)) / 2)  as Median from imputedDF group by date ")
+
+mmPDate2$Median <- as.integer(mmPDate2$Median)
+
+```
+### Report of the Mean and Median for imputed values
+```{r }
+
+print(mmPDate2)
+
+```
+
+## Do these values differ from the estimates from the first part of the assignment?
+
+###Comparing the mean/median between the datasets with the missing values removed and the missing values replaced by mean, they look identical. 
+
+
+## What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+### There does not seem to be any effect of imputing the NAs with MEAN since the overall mean remains the same and the median is not affected anyway.
+
+### However the 8 days which had all missing values earlier and did not show up in the first report now show up.
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r Differences in activity patters between weekdays and weekends}
+
+#create a vector of weekdays
+imputedDF$day <- weekdays(as.Date(imputedDF$date))
+weekdays1 <- c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
+#Use `%in%` and `weekdays` to create a logical vector
+#convert to `factor` and specify the `levels/labels`
+imputedDF$wDay <-  factor((imputedDF$day %in% weekdays1)+1L,
+      levels=1:2, labels=c('weekday', 'weekend'))
+
+```
+
+## Making a time series panel plot for weekdays versus weekends
+
+```{r time series panel plot}
+
+aveStepsInt2 <- sqldf("select interval,
+                      wDay,
+                      AVG(steps) as Mean 
+                      from imputedDF 
+                      where wDay = 'weekday'
+                      group by interval ")
+aveStepsInt3 <- sqldf("select interval,
+                      wDay,
+                      AVG(steps) as Mean 
+                      from imputedDF 
+                      where wDay = 'weekend'
+                      group by interval ")
+
+
+df4 <- rbind(aveStepsInt3, aveStepsInt2)
+
+
+xyplot(Mean ~ interval | wDay, 
+        data = df4,
+        layout=c(1,2),
+        type = "l", lty = c(1, 2, 2, 1),
+        xlab = "Interval", ylab = "Number of Steps"
+       )
+
+
+```
+
+
