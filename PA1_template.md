@@ -8,7 +8,6 @@
 file <- unzip("activity.zip")
 origDF <- read.csv(file, header = TRUE, sep = ",", na.strings = "NA", nrows = 17568)
 
-
 imputedDF <- origDF
 noNADF <- na.omit(origDF)
 ```
@@ -17,6 +16,8 @@ noNADF <- na.omit(origDF)
 
 
 ```r
+# The sqldf library for using SQL to get totals, means, etc. 
+# Makes coding much easier
 library(sqldf)
 ```
 
@@ -38,12 +39,12 @@ totSteps <- sqldf("select sum(steps) from noNADF group by date ")
 ```r
 colnames(totSteps) <- "steps"
 
-hist(totSteps$steps , breaks = 25, ylim = c(0,10), col = 'brown', xlab = 'Sum of Steps', bg = 'white', main = 'Number of Steps per day')
+hist(totSteps$steps , breaks = 25, ylim = c(0,10), col = 'brown', xlab = 'Sum of steps', bg = 'white', main = 'Number of steps per day')
 ```
 
 ![](PA1_template_files/figure-html/1.Histogram-1.png) 
 
-## What is the mean and medium
+## What is the mean and median
 
 
 ```r
@@ -123,7 +124,7 @@ aveStepsInt <- sqldf("select interval, AVG(steps) as Mean from noNADF group by i
 xyplot(aveStepsInt$Mean ~ aveStepsInt$interval,
         data = aveStepsInt,
         type = "l", lty = c(1, 2, 2, 1),
-        xlab = "Interval", ylab = "Average Steps"
+        xlab = "Interval", ylab = "Average steps"
        )
 ```
 
@@ -133,13 +134,13 @@ xyplot(aveStepsInt$Mean ~ aveStepsInt$interval,
 
 
 ```r
-maxInterval <- sqldf(" select interval from noNADF where steps = (select MAX(steps) from noNADF)")
+maxInterval <- sqldf(" select interval from aveStepsInt where Mean = (select MAX(Mean) from aveStepsInt)")
 printStr <- sprintf("The 5 min interval with maximum number of steps = %d",maxInterval$interval)
 print(printStr)
 ```
 
 ```
-## [1] "The 5 min interval with maximum number of steps = 615"
+## [1] "The 5 min interval with maximum number of steps = 835"
 ```
 
 ## Imputing missing values
@@ -154,6 +155,14 @@ print(printStr)
 ```
 ## [1] "Total number of Missing Values = 2304"
 ```
+
+### The missing values for each interval will be imputed with the 'mean steps value' for that interval from the aveStepsInt data frame above created after removing the missing values.
+
+### Please note that since the mean is being added for each NA for all intervals, it is not going to affect the overall MEAN and MEDIAN.
+
+### The below R code accomplishes this.
+
+
 
 ```r
 # Imputing the NAs with the mean for that interval from the No NAs data frame
@@ -178,7 +187,7 @@ hist(totSteps2$steps , breaks = 25, ylim = c(0,10), col = 'brown', xlab = 'Sum o
 
 ![](PA1_template_files/figure-html/2.Histogram-1.png) 
 
-## Mean and medium for imputed values
+## Mean and median for imputed values
 
 
 ```r
@@ -272,6 +281,9 @@ print(mmPDate2)
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
+### The below R code chunk creates a factor variable for separating days into weekdays and weekends.
+
+
 
 ```r
 #create a vector of weekdays
@@ -301,11 +313,11 @@ aveStepsInt3 <- sqldf("select interval,
                       group by interval ")
 
 
-df4 <- rbind(aveStepsInt3, aveStepsInt2)
+weekDayEndDF <- rbind(aveStepsInt3, aveStepsInt2)
 
 
 xyplot(Mean ~ interval | wDay, 
-        data = df4,
+        data = weekDayEndDF,
         layout=c(1,2),
         type = "l", lty = c(1, 2, 2, 1),
         xlab = "Interval", ylab = "Number of Steps"
@@ -313,5 +325,7 @@ xyplot(Mean ~ interval | wDay,
 ```
 
 ![](PA1_template_files/figure-html/time series panel plot-1.png) 
+
+### The panel plot above shows differences in average steps per time interval for weekdays versus weekends.
 
 
